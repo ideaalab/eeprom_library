@@ -94,6 +94,16 @@ void write_ext_eeprom(long address, int data){
 }
 
 /*
+ * Escribe varios datos el mismo tiempo en la EEPROM
+ * address es la posicion de inicio de grabacion
+ * data es un puntero a los datos a escribir
+ * len es la cantidad de bytes a escribir
+ */
+void write_ext_eeprom(long address, int* data, int len){
+#warning "implementar"
+}
+
+/*
  * Lee de la EEPROM externa
  * Lee un byte de la direccion que le pasamos
  */
@@ -108,4 +118,14 @@ int read_ext_eeprom(long address){
    data=i2c_read(0);
    i2c_stop();
    return(data);
+}
+
+/*
+ * Lee varios datos el mismo tiempo de la EEPROM
+ * address es la posicion de inicio de lectura
+ * data es un puntero a la variable donde se escribiran los datos
+ * len es la cantidad de bytes a leer
+ */
+void read_ext_eeprom(long address, int* data, int len){
+#warning "implementar"
 }
