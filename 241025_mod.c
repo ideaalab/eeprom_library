@@ -1,76 +1,122 @@
-///////////////////////////////////////////////////////////////////////////
-////   Library for a 24LC1025 serial EEPROM                             ////
-////                                                                   ////
-////   init_ext_eeprom();    Call before the other functions are used  ////
-////                                                                   ////
-////   write_ext_eeprom(a, d);  Write the byte d to the address a      ////
-////                                                                   ////
-////   d = read_ext_eeprom(a);   Read the byte d from the address a    ////
-////                                                                   ////
-////   The main program may define eeprom_sda                          ////
-////   and eeprom_scl to override the defaults below.                  ////
-////                                                                   ////
-///////////////////////////////////////////////////////////////////////////
-
+/*
+ * Control byte:
+ * 0: R/W (1=R/0=W)
+ * 1: Address 0
+ * 2: Address 1
+ * 3: Block select bit
+ * 4-7: Control code (0b1010)
+ */
 
 #ifndef EEPROM_SDA
-
-#define EEPROM_SDA  PIN_B1
-#define EEPROM_SCL  PIN_B0
-
+#ERROR Hay que declarar el pin EEPROM_SDA
 #endif
 
-#use i2c(master, sda=EEPROM_SDA, scl=EEPROM_SCL)
+#ifndef EEPROM_SCL
+#ERROR Hay que declarar el pin EEPROM_SCL
+#endif
 
-#define EEPROM_ADDRESS int16
-#define EEPROM_SIZE   65535
+#if defined(EEPROM_I2C_ADDR_3)
+#define CONTROL_BYTE_WRITE	0b10100110
+#define CONTROL_BYTE_READ	0b10100111
+#elif defined(EEPROM_I2C_ADDR_2)
+#define CONTROL_BYTE_WRITE	0b10100100
+#define CONTROL_BYTE_READ	0b10100101
+#elif defined(EEPROM_I2C_ADDR_1)
+#define CONTROL_BYTE_WRITE	0b10100010
+#define CONTROL_BYTE_READ	0b10100011
+#elif defined(EEPROM_I2C_ADDR_0)
+#define CONTROL_BYTE_WRITE	0b10100000
+#define CONTROL_BYTE_READ	0b10100001
+#else
+#define CONTROL_BYTE_WRITE	0b10100000
+#define CONTROL_BYTE_READ	0b10100001
+#endif
 
-void init_ext_eeprom()
-{
+/*
+#warning "Control byte escritura I2C:" CONTROL_BYTE_WRITE
+#warning "Control byte lectura I2C:" CONTROL_BYTE_READ
+*/
+
+//hay que forzar I2C por software, sino no funciona ¿?
+#use i2c(FORCE_SW, master, sda=EEPROM_SDA, scl=EEPROM_SCL)
+//#use i2c(master, sda=EEPROM_SDA, scl=EEPROM_SCL)
+
+#define EEPROM_ADDRESS long int
+#define EEPROM_SIZE   65535		//en realidad el tamaño de la memoria es del doble
+								//este es el tamaño de uno de los 2 bloques
+
+/*
+ * Incializa la EEPROM externa
+ */
+void init_ext_eeprom(void){
    output_float(EEPROM_SCL);
    output_float(EEPROM_SDA);
 }
 
-void write_ext_eeprom(int1 bloque, int16 address, BYTE data)
-{
-   BYTE ControlByte=0b10100000;
-   int1 status;
+/*
+ * Escribe en la EEPROM externa
+ * bsb es uno de los dos bloques disponibles
+ * address es la direccion de memoria a escribir
+ * data es el byte que escribiremos en la direccion
+ */
+void write_ext_eeprom(short bsb, long address, int data){
+int ControlByteW = CONTROL_BYTE_WRITE | (int)(bsb<<4);
+short noACK;
 
-   if(bloque==1)
-      ControlByte=0b10101000;
-
-   i2c_start();
-   i2c_write(ControlByte);
-   i2c_write(address>>8);
-   i2c_write(address);
-   i2c_write(data);
-   i2c_stop();
-   i2c_start();
-   status=i2c_write(ControlByte);
-   while(status==1)
-   {
-      i2c_start();
-      status=i2c_write(ControlByte);
-   }
+	i2c_start();			//start condition
+	i2c_write(ControlByteW);	//control byte (write)
+	i2c_write(address>>8);	//address high
+	i2c_write(address);		//address low
+	i2c_write(data);		//data byte
+	i2c_stop();				//stop condition
+	
+	do{
+		i2c_start();
+		noACK = i2c_write(ControlByteW);
+	}while(noACK == TRUE);
+	
+	i2c_stop();
 }
 
-BYTE read_ext_eeprom(int1 bloque, int16 address) {
-   BYTE data;
-   BYTE ControlByteW = 0b10100000;
-   BYTE ControlByteR = 0b10100001;
+/*
+ * Escribe varios datos el mismo tiempo en la EEPROM
+ * bsb es uno de los dos bloques disponibles
+ * address es la posicion de inicio de grabacion
+ * data es un puntero a los datos a escribir
+ * len es la cantidad de bytes a escribir
+ */
+void write_ext_eeprom(short bsb, long address, int* data, int len){
+#warning "implementar"
+}
 
-   if(bloque == 1){
-      ControlByteW = 0b10101000;
-      ControlByteR = 0b10101001;
-   }
+/*
+ * Lee de la EEPROM externa
+ * Lee un byte del bloque y direccion que le pasamos
+ */
+int read_ext_eeprom(short bsb, long address) {
+   int data;
+   int ControlByteW = CONTROL_BYTE_WRITE | (bsb<<4);
+   int ControlByteR = CONTROL_BYTE_READ | (bsb<<4);
 
-   i2c_start();
-   i2c_write(ControlByteW);
-   i2c_write(address>>8);
-   i2c_write(address);
-   i2c_start();
-   i2c_write(ControlByteR);  //bitset pone a '1' la posicion 0 de ControlByte
-   data=i2c_read(0);
-   i2c_stop();
+   i2c_start();				//start condition
+   i2c_write(ControlByteW);	//control byte (write)
+   i2c_write(address>>8);	//address high
+   i2c_write(address);		//address low
+   
+   i2c_start();				//start condition
+   i2c_write(ControlByteR);	//control byte (read)
+   data = i2c_read(0);		//read byte
+   i2c_stop();				//stop condition
+   
    return(data);
+}
+
+/*
+ * Lee varios datos el mismo tiempo de la EEPROM
+ * address es la posicion de inicio de lectura
+ * data es un puntero a la variable donde se escribiran los datos
+ * len es la cantidad de bytes a leer
+ */
+void read_ext_eeprom(short bsb, long address, int* data, int len){
+#warning "implementar"
 }
