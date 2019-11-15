@@ -45,6 +45,9 @@
 #define EEPROM_SIZE   65535		//en realidad el tamaño de la memoria es del doble
 								//este es el tamaño de uno de los 2 bloques
 
+#define EXT_EEPROM_BANK_0	0
+#define EXT_EEPROM_BANK_1	1
+
 /*
  * Incializa la EEPROM externa
  */
