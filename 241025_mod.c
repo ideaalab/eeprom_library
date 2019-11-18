@@ -58,7 +58,7 @@ void init_ext_eeprom(void){
 
 /*
  * Escribe en la EEPROM externa
- * bsb es uno de los dos bloques disponibles
+ * bsb es uno de los dos bloques disponibles (block selection bit)
  * address es la direccion de memoria a escribir
  * data es el byte que escribiremos en la direccion
  */
