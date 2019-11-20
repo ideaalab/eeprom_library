@@ -42,7 +42,7 @@
 //#use i2c(master, sda=EEPROM_SDA, scl=EEPROM_SCL)
 
 #define EEPROM_ADDRESS long int
-#define EEPROM_SIZE   65535		//en realidad el tamaño de la memoria es del doble
+#define EEPROM_SIZE   65536		//en realidad el tamaño de la memoria es del doble
 								//este es el tamaño de uno de los 2 bloques
 
 #define EXT_EEPROM_BANK_0	0
