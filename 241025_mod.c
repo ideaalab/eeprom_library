@@ -1,4 +1,48 @@
 /*
+ * Libreria creada por Martin Andersen para IDEAA Lab
+ * Basada en la libreria de CCS info
+ */
+
+/*
+ * CONFIGIRACION
+ * + Para que la libreria funcione hay que declarar los pines que se van a usar:
+ *  Ejemplo:
+ *	#define EEPROM_SCL	PIN_C0
+ *	#define EEPROM_SDA	PIN_C1
+ * 
+ * + La memoria puede tener 4 direcciones I2C posibles. Se puede configurar
+ *	usando EEPROM_I2C_ADDR_0 / EEPROM_I2C_ADDR_1 / EEPROM_I2C_ADDR_2 /EEPROM_I2C_ADDR_3
+ *	Por defecto, si no se declara se usa la direccion 0.
+ * 
+ * + La escritura requiere unos 3-5 mS de tiempo. Aunque no hace falta quedarse
+ *	esperando hasta que termine. Por defecto se espera, pero se puede declarar
+ *	EEPROM_DONT_WAIT_ACK para que no espere y ganar tiempo.
+ * 
+ * FUNCIONES
+ * 
+ * + init_ext_eeprom()
+ *		llamar antes de usar la libreria
+ * 
+ * + write_ext_eeprom(short bsb, long address, int data)
+ *		escribe en la memoria:
+ *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
+ *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
+ *		-address: posicion de memoria (0 - 65535)
+ *		-data: valor a escribir (0 - 255)
+ * 
+ * + read_ext_eeprom(short bsb, long address)
+ *		lee de la memoria y devuelve un INT con el valor leido:
+ *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
+ *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
+ *		-address: posicion de memoria (0 - 65535)
+ * 
+ * POSIBLES MEJORAS
+ * + Se podria esperar el ACK al inicio de la lectura y grabacion, y asi eliminarlo
+ *	del final de la grabacion.
+ * + Se puede implementar grabacion y lectura por bancos completos
+ */
+
+/*
  * Control byte:
  * 0: R/W (1=R/0=W)
  * 1: Address 0
@@ -24,18 +68,10 @@
 #elif defined(EEPROM_I2C_ADDR_1)
 #define CONTROL_BYTE_WRITE	0b10100010
 #define CONTROL_BYTE_READ	0b10100011
-#elif defined(EEPROM_I2C_ADDR_0)
-#define CONTROL_BYTE_WRITE	0b10100000
-#define CONTROL_BYTE_READ	0b10100001
-#else
+#else	//EEPROM_I2C_ADDR_0
 #define CONTROL_BYTE_WRITE	0b10100000
 #define CONTROL_BYTE_READ	0b10100001
 #endif
-
-/*
-#warning "Control byte escritura I2C:" CONTROL_BYTE_WRITE
-#warning "Control byte lectura I2C:" CONTROL_BYTE_READ
-*/
 
 //hay que forzar I2C por software, sino no funciona ¿?
 #use i2c(FORCE_SW, master, sda=EEPROM_SDA, scl=EEPROM_SCL)
@@ -62,9 +98,8 @@ void init_ext_eeprom(void){
  * address es la direccion de memoria a escribir
  * data es el byte que escribiremos en la direccion
  */
-void write_ext_eeprom(short bsb, long address, int data){
-int ControlByteW = CONTROL_BYTE_WRITE | (int)(bsb<<4);
-short noACK;
+/*void write_ext_eeprom(short bsb, long address, int data){
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 
 	i2c_start();			//start condition
 	i2c_write(ControlByteW);	//control byte (write)
@@ -73,12 +108,30 @@ short noACK;
 	i2c_write(data);		//data byte
 	i2c_stop();				//stop condition
 	
+#ifndef EEPROM_DONT_WAIT_ACK
+short noACK;
 	do{
 		i2c_start();
 		noACK = i2c_write(ControlByteW);
 	}while(noACK == TRUE);
 	
 	i2c_stop();
+#endif
+}*/
+void write_ext_eeprom(short bsb, long address, int data){
+short noACK;
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+
+	//wait for the memory to be ready
+	do{
+		i2c_start();
+		noACK = i2c_write(ControlByteW);
+	}while(noACK == TRUE);
+	
+	i2c_write(address>>8);	//address high
+	i2c_write(address);		//address low
+	i2c_write(data);		//data byte
+	i2c_stop();				//stop condition
 }
 
 /*
@@ -96,10 +149,10 @@ void write_ext_eeprom(short bsb, long address, int* data, int len){
  * Lee de la EEPROM externa
  * Lee un byte del bloque y direccion que le pasamos
  */
-int read_ext_eeprom(short bsb, long address) {
+int read_ext_eeprom(short bsb, long address){
    int data;
-   int ControlByteW = CONTROL_BYTE_WRITE | (bsb<<4);
-   int ControlByteR = CONTROL_BYTE_READ | (bsb<<4);
+   int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+   int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 
    i2c_start();				//start condition
    i2c_write(ControlByteW);	//control byte (write)
