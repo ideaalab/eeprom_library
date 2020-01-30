@@ -59,6 +59,9 @@
 #ERROR Hay que declarar el pin EEPROM_SCL
 #endif
 
+#define EXT_EEPROM_ACK		0
+#define EXT_EEPROM_NO_ACK	1
+
 #if defined(EEPROM_I2C_ADDR_3)
 #define CONTROL_BYTE_WRITE	0b10100110
 #define CONTROL_BYTE_READ	0b10100111
@@ -98,7 +101,7 @@ void init_ext_eeprom(void){
  * address es la direccion de memoria a escribir
  * data es el byte que escribiremos en la direccion
  */
-/*void write_ext_eeprom(short bsb, long address, int data){
+void write_ext_eeprom(short bsb, long address, int data){
 int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 
 	i2c_start();			//start condition
@@ -109,16 +112,36 @@ int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 	i2c_stop();				//stop condition
 	
 #ifndef EEPROM_DONT_WAIT_ACK
-short noACK;
+short resp;
 	do{
 		i2c_start();
-		noACK = i2c_write(ControlByteW);
-	}while(noACK == TRUE);
+		resp = i2c_write(ControlByteW);
+	}while(resp == EXT_EEPROM_NO_ACK);
 	
 	i2c_stop();
 #endif
-}*/
-void write_ext_eeprom(short bsb, long address, int data){
+}
+
+void write1(short bsb, long address, int data){
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+
+	i2c_start();			//start condition
+	i2c_write(ControlByteW);	//control byte (write)
+	i2c_write(address>>8);	//address high
+	i2c_write(address);		//address low
+	i2c_write(data);		//data byte
+	i2c_stop();				//stop condition
+	
+short response;
+	do{
+		i2c_start();
+		response = i2c_write(ControlByteW);
+	}while(response == EXT_EEPROM_NO_ACK);
+	
+	i2c_stop();
+}
+
+void write2(short bsb, long address, int data){
 short noACK;
 int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 

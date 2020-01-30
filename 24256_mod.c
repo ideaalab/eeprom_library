@@ -98,6 +98,7 @@ short noACK;
 	}while(noACK == TRUE);
 	
 	i2c_stop();
+#warning "Podemos esperar al inicio?"
 }
 
 /*
