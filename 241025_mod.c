@@ -30,8 +30,10 @@
 /*******************************************************************************
  * FUNCIONES
  * 
- * + init_ext_eeprom()
- *		llamar antes de usar la libreria
+ * + init_ext_eeprom(int speed)
+ *		llamar antes de usar la libreria para inicializar el I2C
+ *		-speed: usar una de las constantes para escoger velocidad
+ *		EXT_EEPROM_100KHZ / EXT_EEPROM_400KHZ
  * 
  * + write_ext_eeprom(short bsb, long address, int data)
  *		escribe en la memoria:
@@ -77,6 +79,13 @@
  *			int valores[64];
  *			read_block_ext_eeprom(0, 0, 64, valores);
  * 
+ * + print_ext_eeprom(short bsb, long start, long len)
+ *		muestra el contenido de la EEPROM por puerto serie
+ *		requiere "#use rs232()" en programa, antes de llamar a la libreria
+ *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
+ *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
+ *		-start: posicion de comienzo de memoria (0 - 65535)
+ *		-len: cantidad de datos a leer (1 - 65535)
  ******************************************************************************/
 
 /*
@@ -96,15 +105,6 @@
 #ERROR Hay que declarar el pin EEPROM_SCL
 #endif
 
-#define EXT_EEPROM_SLAVE_ACK	0
-#define EXT_EEPROM_SLAVE_NO_ACK	1
-
-//usadas con i2c_read()
-//cuando queremos terminar la lectura usamos EXT_EEPROM_MASTER_NO_ACK
-//si queremos seguir leyendo usamos EXT_EEPROM_MASTER_ACK
-#define EXT_EEPROM_MASTER_ACK		1
-#define EXT_EEPROM_MASTER_NO_ACK	0
-
 #if defined(EEPROM_I2C_ADDR_3)
 #define CONTROL_BYTE_WRITE	0b10100110
 #define CONTROL_BYTE_READ	0b10100111
@@ -120,22 +120,44 @@
 #endif
 
 //hay que forzar I2C por software, sino no funciona ¿?
-#use i2c(FORCE_SW, master, sda=EEPROM_SDA, scl=EEPROM_SCL)
-//#use i2c(master, sda=EEPROM_SDA, scl=EEPROM_SCL)
+//#use i2c(FORCE_SW, MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL)
+#use i2c(MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL, stream=EEPROM_I2C)
 
-#define EEPROM_ADDRESS long int
-#define EEPROM_PAGE_SIZE	128
-#define EEPROM_SIZE			65536		//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
+#define EEPROM_ADDRESS				long
+#define EEPROM_PAGE_SIZE			128
+#define EEPROM_SIZE					65536	//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
 
-#define EXT_EEPROM_BANK_0	0
-#define EXT_EEPROM_BANK_1	1
+#define EXT_EEPROM_BANK_0			0		//
+#define EXT_EEPROM_BANK_1			1		//
+
+//respuestas devueltas por i2c_write()
+#define EXT_EEPROM_SLAVE_ACK		0		//slave responde que si esta listo
+#define EXT_EEPROM_SLAVE_NO_ACK		1		//slave responde que no esta listo
+
+//usadas en i2c_read("AQUI")
+#define EXT_EEPROM_MASTER_ACK		1		//si queremos seguir leyendo datos
+#define EXT_EEPROM_MASTER_NO_ACK	0		//si queremos terminar la lectura
+
+//velocidad del reloj:
+#define EXT_EEPROM_100KHZ			0
+#define EXT_EEPROM_400KHZ			1
 
 /*
  * Incializa la EEPROM externa
  */
-void init_ext_eeprom(void){
-   output_float(EEPROM_SCL);
-   output_float(EEPROM_SDA);
+void init_ext_eeprom(short speed){
+	output_float(EEPROM_SCL);
+	output_float(EEPROM_SDA);
+
+	switch(speed){
+		case EXT_EEPROM_100KHZ:
+			i2c_init(EEPROM_I2C, 100000);
+			break;
+			
+		case EXT_EEPROM_400KHZ:
+			i2c_init(EEPROM_I2C, 400000);
+			break;
+	}
 }
 
 /*
@@ -153,13 +175,13 @@ int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 
 	//esperamos a que la memoria este lista
 	do{
-		i2c_start();
-	}while(i2c_write(ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
+		i2c_start(EEPROM_I2C);
+	}while(i2c_write(EEPROM_I2C, ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
 	
-	i2c_write(address>>8);	//address high
-	i2c_write(address);		//address low
-	i2c_write(data);		//data byte
-	i2c_stop();				//stop condition
+	i2c_write(EEPROM_I2C, address>>8);	//address high
+	i2c_write(EEPROM_I2C, address);		//address low
+	i2c_write(EEPROM_I2C, data);		//data byte
+	i2c_stop(EEPROM_I2C);				//stop condition
 }
 
 /*
@@ -176,17 +198,17 @@ long end = start + len;
 	do{
 		//esperamos a que la memoria este lista
 		do{
-			i2c_start();
-		}while(i2c_write(ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
+			i2c_start(EEPROM_I2C);
+		}while(i2c_write(EEPROM_I2C, ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
 
-		i2c_write(start>>8);	//address high
-		i2c_write(start);		//address low
+		i2c_write(EEPROM_I2C, start>>8);	//address high
+		i2c_write(EEPROM_I2C, start);		//address low
 
 		do{
-			i2c_Write(*data++);
+			i2c_Write(EEPROM_I2C, *data++);
 		}while(start++%EEPROM_PAGE_SIZE == 0);
 		
-		i2c_stop();
+		i2c_stop(EEPROM_I2C);
 	}while(start < end);
 }
 
@@ -202,16 +224,16 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 
 	//esperamos que la memoria este lista
 	do{
-		i2c_start();
-	}while(i2c_write(ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
+		i2c_start(EEPROM_I2C);
+	}while(i2c_write(EEPROM_I2C, ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
 	
-	i2c_write(address>>8);		//address high
-	i2c_write(address);			//address low
+	i2c_write(EEPROM_I2C, address>>8);		//address high
+	i2c_write(EEPROM_I2C, address);			//address low
 
-	i2c_start();				//start condition
-	i2c_write(ControlByteR);	//control byte (read)
-	data = i2c_read(EXT_EEPROM_MASTER_NO_ACK);	//read byte
-	i2c_stop();					//stop condition
+	i2c_start(EEPROM_I2C);				//start condition
+	i2c_write(EEPROM_I2C, ControlByteR);	//control byte (read)
+	data = i2c_read(EEPROM_I2C, EXT_EEPROM_MASTER_NO_ACK);	//read byte
+	i2c_stop(EEPROM_I2C);					//stop condition
 
 	return(data);
 }
@@ -228,28 +250,28 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 
    //esperamos que la memoria este lista
 	do{
-		i2c_start();
-	}while(i2c_write(ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
+		i2c_start(EEPROM_I2C);
+	}while(i2c_write(EEPROM_I2C, ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
 	
-	i2c_write(start>>8);		//address high
-	i2c_write(start);			//address low
+	i2c_write(EEPROM_I2C, start>>8);		//address high
+	i2c_write(EEPROM_I2C, start);			//address low
 
-	i2c_start();				//start condition
-	i2c_write(ControlByteR);	//control byte (read)
+	i2c_start(EEPROM_I2C);				//start condition
+	i2c_write(EEPROM_I2C, ControlByteR);	//control byte (read)
 	
 	for(long i = 0; i < len-1 ; i++){
-		*data++ = i2c_read(EXT_EEPROM_MASTER_ACK);	//read byte
+		*data++ = i2c_read(EEPROM_I2C, EXT_EEPROM_MASTER_ACK);	//read byte
 	}
 	
-	*data = i2c_read(EXT_EEPROM_MASTER_NO_ACK);		//read last byte
-	i2c_stop();					//stop condition
+	*data = i2c_read(EEPROM_I2C, EXT_EEPROM_MASTER_NO_ACK);		//read last byte
+	i2c_stop(EEPROM_I2C);					//stop condition
 }
 
 /*
  * Sirve para ver lo que hay en la memoria EEPROM y mostrarlo por puerto serie
  * bsb es uno de los dos bloques disponibles (block selection bit)
  * start es la direccion donde comenzamos a leer
- * end es la ultima direccion a leer
+ * len es la cantidad de bytes a leer
  */
 #if definedinc(STDOUT)
 void print_ext_eeprom(short bsb, long start, long len){
