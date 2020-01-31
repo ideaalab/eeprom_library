@@ -39,6 +39,23 @@
  *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
  *		-address: posicion de memoria (0 - 65535)
  *		-data: valor a escribir (0 - 255)
+ *
+ * + write_block_ext_eeprom(short bsb, long start, long len, int* data)
+ *		escribe un bloque memoria de un array:
+ *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
+ *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
+ *		-start: posicion de comienzo de memoria (0 - 65535)
+ *		-len: cantidad de datos a escribir (1 - 65535)
+ *		-*data: puntero del array donde tenemos los datos guardados
+ *			CUIDADO, la funcion no comprueba el tamaño del array. Tenemos
+ *			que pasarle un array del al menos el tamaño "len" para que no
+ *			lea variables adyacentes.
+ *			Ejemplo:
+ *			int valores[64];
+ *			for(int x = 0; x < 64; x++){
+ *				valores[x] = x;
+ *			}
+ *			write_block_ext_eeprom(EXT_EEPROM_BANK_0, 0, 64, valores);
  * 
  * + read_ext_eeprom(short bsb, long address)
  *		lee de la memoria y devuelve un INT con el valor leido:
@@ -46,7 +63,7 @@
  *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
  *		-address: posicion de memoria (0 - 65535)
  * 
-  * + read_block_ext_eeprom(short bsb, long start, long len, int* data)
+ * + read_block_ext_eeprom(short bsb, long start, long len, int* data)
  *		lee un bloque memoria a un array:
  *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
  *		se pueden usar las constantes: EXT_EEPROM_BANK_0 y EXT_EEPROM_BANK_1
@@ -59,11 +76,7 @@
  *			Ejemplo:
  *			int valores[64];
  *			read_block_ext_eeprom(0, 0, 64, valores);
- ******************************************************************************/
-
-/*******************************************************************************
- * POSIBLES MEJORAS
- * + Se puede implementar grabacion y lectura por bancos completos
+ * 
  ******************************************************************************/
 
 /*
@@ -267,27 +280,6 @@ long page = start / EEPROM_PAGE_SIZE;
 		
 		printf("%02X ", read_ext_eeprom(bsb, x));	//imprimo valor
 	}
-	
-	/*
-	//lectura secuencial, mas rapida, pero necesitamos un buffer grande
-	int valores[64];
-	read_block_ext_eeprom(bsb, start, len, valores);
-	
-	for(long x = start; x < end; x++){
-		//imprimo cambio de linea en los multiplos de 8
-		if((x%8 == 0) && (x != start)){
-			printf("\r\n");
-			
-			//imprimo otro cambio de linea en los cambios de pagina
-			if(x%EEPROM_PAGE_SIZE == 0){
-				page = x / EEPROM_PAGE_SIZE;
-				printf("\r\n- Page %Lu\r\n", page);
-			}
-		}
-		
-		printf("%02X ", valores[x]);	//imprimo valor
-	}
-	*/
 	
 	printf("\r\n\r\n");
 }
