@@ -119,16 +119,14 @@
 #define CONTROL_BYTE_READ	0b10100001
 #endif
 
-//hay que forzar I2C por software, sino no funciona ¿?
-//#use i2c(FORCE_SW, MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL)
 #use i2c(MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL, stream=EEPROM_I2C)
 
 #define EEPROM_ADDRESS				long
 #define EEPROM_PAGE_SIZE			128
 #define EEPROM_SIZE					65536	//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
 
-#define EXT_EEPROM_BANK_0			0		//
-#define EXT_EEPROM_BANK_1			1		//
+#define EXT_EEPROM_BANK_0			0		//banco 0, 65536 bytes disponibles
+#define EXT_EEPROM_BANK_1			1		//banco 1, otros 65536 bytes disponibles
 
 //respuestas devueltas por i2c_write()
 #define EXT_EEPROM_SLAVE_ACK		0		//slave responde que si esta listo
