@@ -12,14 +12,20 @@
 ////                                                                   ////
 ///////////////////////////////////////////////////////////////////////////
 
+/*
+ * Control byte:
+ * 0: R/W (1=R/0=W)
+ * 1: Address 0
+ * 2: Address 1
+ * 3: Address 2
+ * 4-7: Control code (0b1010)
+ */
 
 #ifndef EEPROM_SDA
-//#define EEPROM_SDA	PIN_A0
 #ERROR Hay que declarar el pin EEPROM_SDA
 #endif
 
 #ifndef EEPROM_SCL
-//#define EEPROM_SCL	PIN_A1
 #ERROR Hay que declarar el pin EEPROM_SCL
 #endif
 
@@ -67,8 +73,8 @@
  * Incializa la EEPROM externa
  */
 void init_ext_eeprom(void){
-   output_float(EEPROM_SCL);
-   output_float(EEPROM_SDA);
+	output_float(EEPROM_SCL);
+	output_float(EEPROM_SDA);
 }
 
 /*
@@ -77,20 +83,22 @@ void init_ext_eeprom(void){
  * data es el byte que escribiremos en la direccion
  */
 void write_ext_eeprom(long address, int data){
-   short int status;
-   i2c_start();
-   i2c_write(CONTROL_BYTE_WRITE);
-   i2c_write(address>>8);
-   i2c_write(address);
-   i2c_write(data);
-   i2c_stop();
-   i2c_start();
-   status=i2c_write(CONTROL_BYTE_WRITE);
-   while(status==1) {
-      i2c_start();
-	  status=i2c_write(CONTROL_BYTE_WRITE);
-   }
-   i2c_stop();
+short noACK;
+
+	i2c_start();					//start condition
+	i2c_write(CONTROL_BYTE_WRITE);	//control byte (write)
+	i2c_write(address>>8);			//address high
+	i2c_write(address);				//address low
+	i2c_write(data);				//data byte
+	i2c_stop();						//stop condition
+	
+	do{
+		i2c_start();
+		noACK = i2c_write(CONTROL_BYTE_WRITE);
+	}while(noACK == TRUE);
+	
+	i2c_stop();
+#warning "Podemos esperar al inicio?"
 }
 
 /*
@@ -108,16 +116,18 @@ void write_ext_eeprom(long address, int* data, int len){
  * Lee un byte de la direccion que le pasamos
  */
 int read_ext_eeprom(long address){
-   BYTE data;
-   i2c_start();
-   i2c_write(CONTROL_BYTE_WRITE);
-   i2c_write(address>>8);
-   i2c_write(address);
-   i2c_start();
-   i2c_write(CONTROL_BYTE_READ);
-   data=i2c_read(0);
-   i2c_stop();
-   return(data);
+	int data;
+
+	i2c_start();
+	i2c_write(CONTROL_BYTE_WRITE);
+	i2c_write(address>>8);
+	i2c_write(address);
+	i2c_start();
+	i2c_write(CONTROL_BYTE_READ);
+	data = i2c_read(0);
+	i2c_stop();
+
+	return(data);
 }
 
 /*
