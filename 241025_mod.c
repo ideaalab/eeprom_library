@@ -268,7 +268,8 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 }
 
 /*
- * Sirve para ver lo que hay en la memoria EEPROM y mostrarlo por puerto serie
+ * Sirve para ver lo que hay en la memoria EEPROM externa y mostrarlo
+ * por puerto serie
  * bsb es uno de los dos bloques disponibles (block selection bit)
  * start es la direccion donde comenzamos a leer
  * len es la cantidad de bytes a leer
