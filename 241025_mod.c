@@ -189,7 +189,8 @@ int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
  * data es un puntero a los datos a escribir
  * len es la cantidad de bytes a escribir
  */
-void write_block_ext_eeprom(short bsb, long start, int len, int* data){
+void write_block_ext_eeprom(short bsb, long start, long len, int* data){
+short primero;		//indica si es el primer valor del bloque
 int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
 long end = start + len;
 
@@ -201,10 +202,14 @@ long end = start + len;
 
 		i2c_write(EEPROM_I2C, start>>8);	//address high
 		i2c_write(EEPROM_I2C, start);		//address low
-
-		do{
+		
+		primero = TRUE;
+		
+		while((primero == TRUE) || (start%EEPROM_PAGE_SIZE != 0)){
 			i2c_Write(EEPROM_I2C, *data++);
-		}while(start++%EEPROM_PAGE_SIZE == 0);
+			start++;
+			primero = FALSE;
+		};
 		
 		i2c_stop(EEPROM_I2C);
 	}while(start < end);
@@ -228,7 +233,7 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 	i2c_write(EEPROM_I2C, address>>8);		//address high
 	i2c_write(EEPROM_I2C, address);			//address low
 
-	i2c_start(EEPROM_I2C);				//start condition
+	i2c_start(EEPROM_I2C);					//start condition
 	i2c_write(EEPROM_I2C, ControlByteR);	//control byte (read)
 	data = i2c_read(EEPROM_I2C, EXT_EEPROM_MASTER_NO_ACK);	//read byte
 	i2c_stop(EEPROM_I2C);					//stop condition
@@ -254,7 +259,7 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
 	i2c_write(EEPROM_I2C, start>>8);		//address high
 	i2c_write(EEPROM_I2C, start);			//address low
 
-	i2c_start(EEPROM_I2C);				//start condition
+	i2c_start(EEPROM_I2C);					//start condition
 	i2c_write(EEPROM_I2C, ControlByteR);	//control byte (read)
 	
 	for(long i = 0; i < len-1 ; i++){
