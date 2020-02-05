@@ -25,7 +25,8 @@
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
                    projectFiles="false">
-      <itemPath>Makefile</itemPath>
+      <itemPath>../241025_mod.c</itemPath>
+      <itemPath>../24256_mod.c</itemPath>
     </logicalFolder>
   </logicalFolder>
   <sourceRootList>
