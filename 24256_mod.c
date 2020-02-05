@@ -1,3 +1,5 @@
+#ifndef EEPROM_256K
+#define	EEPROM_256K
 /*******************************************************************************
  * Libreria creada por Martin Andersen para IDEAA Lab
  * Basada en la libreria de CCS info
@@ -41,13 +43,18 @@
  *		-address: posicion de memoria (0 - 32767)
  *		-data: valor a escribir (0 - 255)
  *
+  * + void write_ext_eeprom_old(long address, int data)
+ *		escribe en la memoria:
+ *		-address: posicion de memoria (0 - 65535)
+ *		-data: valor a escribir (0 - 255)
+ *
  * + write_block_ext_eeprom(long start, long len, int* data)
  *		escribe un bloque memoria de un array:
  *		-start: posicion de comienzo de memoria (0 - 32767)
  *		-len: cantidad de datos a escribir (1 - 32767)
  *		-*data: puntero del array donde tenemos los datos guardados
- *			CUIDADO, la funcion no comprueba el tamaño del array. Tenemos
- *			que pasarle un array del al menos el tamaño "len" para que no
+ *			CUIDADO, la funcion no comprueba el tamaÃ±o del array. Tenemos
+ *			que pasarle un array del al menos el tamaÃ±o "len" para que no
  *			lea variables adyacentes.
  *			Ejemplo:
  *			int valores[64];
@@ -65,8 +72,8 @@
  *		-start: posicion de comienzo de memoria (0 - 32767)
  *		-len: cantidad de datos a leer (1 - 32767)
  *		-*data: puntero del array donde vamos a guardar los datos
- *			CUIDADO, la funcion no comprueba el tamaño del array. Tenemos
- *			que pasarle un array del al menos el tamaño "len" para que no
+ *			CUIDADO, la funcion no comprueba el tamaÃ±o del array. Tenemos
+ *			que pasarle un array del al menos el tamaÃ±o "len" para que no
  *			sobreescriba variables adyacentes.
  *			Ejemplo:
  *			int valores[64];
@@ -125,8 +132,9 @@
 #use i2c(MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL, stream=EEPROM_I2C)
 
 #define EEPROM_ADDRESS				long
-#define EEPROM_PAGE_SIZE			128
+#define EEPROM_PAGE_SIZE			64
 #define EEPROM_SIZE					32768
+#define EEPROM_PAGES				(EEPROM_SIZE/EEPROM_PAGE_SIZE)
 
 //respuestas devueltas por i2c_write()
 #define EXT_EEPROM_SLAVE_ACK		0		//slave responde que si esta listo
@@ -181,12 +189,34 @@ void write_ext_eeprom(long address, int data){
 }
 
 /*
+ * Escribe en la EEPROM externa y ESPERO A QUE TERMINE DE ESCRIBIR
+ * bsb es uno de los dos bloques disponibles (block selection bit)
+ * address es la direccion de memoria a escribir
+ * data es el byte que escribiremos en la direccion
+ */
+void write_ext_eeprom_old(long address, int data){
+#warning "Sin probar!"
+	i2c_start(EEPROM_I2C);				//start
+	i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE);//control byte
+	i2c_write(EEPROM_I2C, address>>8);	//address high
+	i2c_write(EEPROM_I2C, address);		//address low
+	i2c_write(EEPROM_I2C, data);		//data byte
+	i2c_stop(EEPROM_I2C);				//stop
+	
+	//esperamos a que la memoria termine
+	do{
+		i2c_start(EEPROM_I2C);
+	}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE) == EXT_EEPROM_SLAVE_NO_ACK);
+	i2c_stop(EEPROM_I2C);				//stop
+}
+
+/*
  * Escribe varios datos el mismo tiempo en la EEPROM
  * start es la posicion de inicio de grabacion
  * data es un puntero a los datos a escribir
  * len es la cantidad de bytes a escribir
  */
-void write_block_ext_eeprom(long start, int len, int* data){
+void write_block_ext_eeprom(long start, long len, int* data){
 #warning "Sin probar!"
 long end = start + len;
 
@@ -300,4 +330,4 @@ long page = start / EEPROM_PAGE_SIZE;
 	printf("\r\n\r\n");
 }
 #endif
-
+#endif
