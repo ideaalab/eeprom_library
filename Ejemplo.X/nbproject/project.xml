@@ -17,7 +17,11 @@
             </sourceRootList>
             <confList>
                 <confElem>
-                    <name>default</name>
+                    <name>TEST_1024</name>
+                    <type>2</type>
+                </confElem>
+                <confElem>
+                    <name>TEST_256</name>
                     <type>2</type>
                 </confElem>
             </confList>
