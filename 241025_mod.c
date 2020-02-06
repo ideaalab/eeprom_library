@@ -315,8 +315,8 @@ void print_ext_eeprom(short bsb, long start, long len){
 long end = start + len;
 long page = start / EEPROM_PAGE_SIZE;
 	
-	printf("EEPROM BLOCK %u (%Lu - %Lu):\r\n", bsb, start, start + len - 1);
-	printf("\r\n- Page %Lu\r\n", page);
+	printf("\r\nEEPROM BLOCK %u (%Lu - %Lu):\r\n", bsb, start, start + len - 1);
+	printf("\r\n> Page %Lu\r\n", page);
 	
 	//imprimimos offset
 	int resto = start%8;
@@ -333,7 +333,7 @@ long page = start / EEPROM_PAGE_SIZE;
 			//imprimo otro cambio de linea en los cambios de pagina
 			if(x%EEPROM_PAGE_SIZE == 0){
 				page = x / EEPROM_PAGE_SIZE;
-				printf("\r\n- Page %Lu\r\n", page);
+				printf("\r\n> Page %Lu\r\n", page);
 			}
 		}
 		
