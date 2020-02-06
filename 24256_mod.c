@@ -151,7 +151,7 @@
 /*
  * Incializa la EEPROM externa
  */
-void init_ext_eeprom(void){
+void init_ext_eeprom(int speed){
 	output_float(EEPROM_SCL);
 	output_float(EEPROM_SDA);
 
@@ -176,7 +176,6 @@ void init_ext_eeprom(void){
  * data es el byte que escribiremos en la direccion
  */
 void write_ext_eeprom(long address, int data){
-#warning "Sin probar!"
 	//esperamos a que la memoria este lista
 	do{
 		i2c_start(EEPROM_I2C);
@@ -195,7 +194,6 @@ void write_ext_eeprom(long address, int data){
  * data es el byte que escribiremos en la direccion
  */
 void write_ext_eeprom_old(long address, int data){
-#warning "Sin probar!"
 	i2c_start(EEPROM_I2C);				//start
 	i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE);//control byte
 	i2c_write(EEPROM_I2C, address>>8);	//address high
@@ -217,7 +215,7 @@ void write_ext_eeprom_old(long address, int data){
  * len es la cantidad de bytes a escribir
  */
 void write_block_ext_eeprom(long start, long len, int* data){
-#warning "Sin probar!"
+short primero;		//indica si es el primer valor del bloque
 long end = start + len;
 
 	do{
@@ -229,9 +227,13 @@ long end = start + len;
 		i2c_write(EEPROM_I2C, start>>8);	//address high
 		i2c_write(EEPROM_I2C, start);		//address low
 
-		do{
+		primero = TRUE;
+		
+		while((primero == TRUE) || (start%EEPROM_PAGE_SIZE != 0)){
 			i2c_Write(EEPROM_I2C, *data++);
-		}while(start++%EEPROM_PAGE_SIZE == 0);
+			start++;
+			primero = FALSE;
+		};
 		
 		i2c_stop(EEPROM_I2C);
 	}while(start < end);
@@ -242,8 +244,7 @@ long end = start + len;
  * Lee un byte del bloque y direccion que le pasamos
  * Comprueba que haya terminado cualquier grabacion antes de leer.
  */
-int read_ext_eeprom(short bsb, long address){
-#warning "Sin probar!"
+int read_ext_eeprom(long address){
 int data;
 
 	//esperamos que la memoria este lista
@@ -269,7 +270,6 @@ int data;
  * len es la cantidad de bytes a leer
  */
 void read_block_ext_eeprom(long start, long len, int* data){
-#warning "Sin probar!"
    //esperamos que la memoria este lista
 	do{
 		i2c_start(EEPROM_I2C);
@@ -298,12 +298,11 @@ void read_block_ext_eeprom(long start, long len, int* data){
  */
 #if definedinc(STDOUT)
 void print_ext_eeprom(long start, long len){
-#warning "Sin probar!"
 long end = start + len;
 long page = start / EEPROM_PAGE_SIZE;
 	
-	printf("EEPROM (%Lu - %Lu):\r\n", start, end - 1);
-	printf("\r\n- Page %Lu\r\n", page);
+	printf("\r\nEEPROM (%Lu - %Lu):\r\n", start, end - 1);
+	printf("\r\n> Page %Lu\r\n", page);
 	
 	//imprimimos offset
 	int resto = start%8;
@@ -320,7 +319,7 @@ long page = start / EEPROM_PAGE_SIZE;
 			//imprimo otro cambio de linea en los cambios de pagina
 			if(x%EEPROM_PAGE_SIZE == 0){
 				page = x / EEPROM_PAGE_SIZE;
-				printf("\r\n- Page %Lu\r\n", page);
+				printf("\r\n> Page %Lu\r\n", page);
 			}
 		}
 		
