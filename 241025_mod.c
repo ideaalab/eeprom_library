@@ -37,6 +37,9 @@
  *		-speed: usar una de las constantes para escoger velocidad
  *		EXT_EEPROM_100KHZ / EXT_EEPROM_400KHZ
  * 
+ * + erase_ext_eeprom(void)
+ *		borra todo el contenido de la EEPROM (0xFF)
+ * 
  * + write_ext_eeprom(short bsb, long address, int data)
  *		escribe en la memoria:
  *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
@@ -132,8 +135,8 @@
 
 #define EEPROM_ADDRESS				long
 #define EEPROM_PAGE_SIZE			128
-#define EEPROM_SIZE					65536	//en realidad el tamaÃ±o de la memoria es del doble, este es el tamaÃ±o de uno de los 2 bloques
-#define EEPROM_PAGES				(EEPROM_SIZE/EEPROM_PAGE_SIZE)
+#define EEPROM_SIZE					65536	//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
+#define EEPROM_PAGES				(EEPROM_SIZE / EEPROM_PAGE_SIZE)
 
 #define EXT_EEPROM_BANK_0			0		//banco 0, 65536 bytes disponibles
 #define EXT_EEPROM_BANK_1			1		//banco 1, otros 65536 bytes disponibles
@@ -150,6 +153,8 @@
 #define EXT_EEPROM_100KHZ			0
 #define EXT_EEPROM_400KHZ			1
 
+#define EMPTY_EEPROM_VAL			0xFF	//valor de memoria vacia
+
 /*
  * Incializa la EEPROM externa
  */
@@ -165,6 +170,36 @@ void init_ext_eeprom(short speed){
 		case EXT_EEPROM_400KHZ:
 			i2c_init(EEPROM_I2C, 400000);
 			break;
+	}
+}
+
+/*
+ * Borra todo el contenido de la EEPROM
+ */
+void empty_ext_eeprom(void){
+int ControlByteW;
+long pos;
+
+	for(short block = 0; block < 2; block++){
+		pos = 0;
+		ControlByteW = CONTROL_BYTE_WRITE | ((int)block<<3);
+		
+		for(long x = 0; x < EEPROM_PAGES; x++){
+			//esperamos a que la memoria este lista
+			do{
+				i2c_start(EEPROM_I2C);
+			}while(i2c_write(EEPROM_I2C, ControlByteW) == EXT_EEPROM_SLAVE_NO_ACK);
+
+			i2c_write(EEPROM_I2C, pos>>8);	//address high
+			i2c_write(EEPROM_I2C, pos);		//address low
+			
+			for(int y = 0; y < EEPROM_PAGE_SIZE; y++){
+				i2c_Write(EEPROM_I2C, EMPTY_EEPROM_VAL);
+				pos++;
+			}
+
+			i2c_stop(EEPROM_I2C);
+		}
 	}
 }
 
