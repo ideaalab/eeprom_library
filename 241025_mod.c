@@ -37,6 +37,9 @@
  *		-speed: usar una de las constantes para escoger velocidad
  *		EXT_EEPROM_100KHZ / EXT_EEPROM_400KHZ
  * 
+ * + erase_ext_eeprom(void)
+ *		borra todo el contenido de la EEPROM (0xFF)
+ * 
  * + write_ext_eeprom(short bsb, long address, int data)
  *		escribe en la memoria:
  *		-bsb: banco de memoria (mitad inferior [0] o mitad superior [1])
@@ -128,12 +131,15 @@
 #define CONTROL_BYTE_READ	0b10100001
 #endif
 
+#define CONTROL_BYTE_WRITE_B0	CONTROL_BYTE_WRITE
+#define CONTROL_BYTE_WRITE_B1	(CONTROL_BYTE_WRITE | (int)1<<3)
+
 #use i2c(MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL, stream=EEPROM_I2C)
 
 #define EEPROM_ADDRESS				long
 #define EEPROM_PAGE_SIZE			128
 #define EEPROM_SIZE					65536	//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
-#define EEPROM_PAGES				(EEPROM_SIZE/EEPROM_PAGE_SIZE)
+#define EEPROM_PAGES				(EEPROM_SIZE / EEPROM_PAGE_SIZE)
 
 #define EXT_EEPROM_BANK_0			0		//banco 0, 65536 bytes disponibles
 #define EXT_EEPROM_BANK_1			1		//banco 1, otros 65536 bytes disponibles
@@ -150,6 +156,8 @@
 #define EXT_EEPROM_100KHZ			0
 #define EXT_EEPROM_400KHZ			1
 
+#define EMPTY_EEPROM_VAL			0xFF	//valor de memoria vacia
+
 /*
  * Incializa la EEPROM externa
  */
@@ -165,6 +173,45 @@ void init_ext_eeprom(short speed){
 		case EXT_EEPROM_400KHZ:
 			i2c_init(EEPROM_I2C, 400000);
 			break;
+	}
+}
+
+/*
+ * Borra todo el contenido de la EEPROM
+ */
+void erase_ext_eeprom(void){
+long pos = 0;
+		
+	for(long x = 0; x < EEPROM_PAGES; x++){
+		/* BLOQUE 0 */
+		do{
+			i2c_start(EEPROM_I2C);
+		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE_B0) == EXT_EEPROM_SLAVE_NO_ACK);
+
+		i2c_write(EEPROM_I2C, pos>>8);	//address high
+		i2c_write(EEPROM_I2C, pos);		//address low
+
+		for(int y = 0; y < EEPROM_PAGE_SIZE; y++){
+			i2c_write(EEPROM_I2C, EMPTY_EEPROM_VAL);
+		}
+
+		i2c_stop(EEPROM_I2C);
+
+		/* BLOQUE 1 */
+		do{
+			i2c_start(EEPROM_I2C);
+		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE_B1) == EXT_EEPROM_SLAVE_NO_ACK);
+
+		i2c_write(EEPROM_I2C, pos>>8);	//address high
+		i2c_write(EEPROM_I2C, pos);		//address low
+
+		for(int y = 0; y < EEPROM_PAGE_SIZE; y++){
+			i2c_write(EEPROM_I2C, EMPTY_EEPROM_VAL);
+		}
+
+		i2c_stop(EEPROM_I2C);
+
+		pos = pos + EEPROM_PAGE_SIZE;
 	}
 }
 
@@ -239,7 +286,7 @@ long end = start + len;
 		primero = TRUE;
 		
 		while((primero == TRUE) || (start%EEPROM_PAGE_SIZE != 0)){
-			i2c_Write(EEPROM_I2C, *data++);
+			i2c_write(EEPROM_I2C, *data++);
 			start++;
 			primero = FALSE;
 		};

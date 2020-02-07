@@ -4,6 +4,14 @@
  *
  * Created on 4 de febrero de 2020, 16:32
  */
+
+/*
+ * Si se abre como proyecto de MPLAB X, se puede elegir en un desplegable las
+ * dos opciones de compilacion: TEST_256 o TEST_1024
+ * Si en cambio se abre de otra manera, descomentar una de las dos lineas
+ * de abajo para que compile para uno u otro ejemplo
+ */
+
 //#define TEST_256
 //#define TEST_1024
 
@@ -61,6 +69,9 @@
 #define MILISECONDS		(1000UL * MICROSECONDS)
 #define SECONDS			(1000UL * MILISECONDS)
 
+/* MACROS */
+#define NOW				(get_timer1() + (cont * 0xFFFF))
+
 #if defined(TEST_256)
 #include "../24256_mod.c"
 #elif defined(TEST_1024)
@@ -78,16 +89,16 @@ void Timer1_isr(void){
 	cont++;
 }
 
-void printTime(int32 time){
-long sec, ms, us;
-
-	sec = time / SECONDS;
-	ms = (time % SECONDS) / MILISECONDS;
-	us = (time % SECONDS) % MILISECONDS;
+/* PROTOTIPOS */
+void old_byte_write(void);
+void new_byte_write(void);
+void write_pages(void);
+void sequential_read(void);
+void write_full_eeprom(void);
+void read_and_print(void);
+void eeprom_full_erase(void);
+void printTime(int32 time);
 	
-	printf("TOTAL: %Lu Sec %Lu mS %Lu uS\r\n", sec, ms, us);
-}
-
 void main(void){
 	setup_oscillator(OSC_8MHZ|OSC_PLL_ON);	//configura oscilador interno
 	setup_wdt(WDT_OFF);						//configura wdt
@@ -125,70 +136,85 @@ void main(void){
 	
 	init_ext_eeprom(EXT_EEPROM_400KHZ);		//inicializa eeprom externa a 400Khz
 	/* ---------------------------------------------------------------------- */
+
+#if defined(EEPROM_1024K)
+	int prev = read_ext_eeprom(0, 0) + 1;
+#else
+	int prev = read_ext_eeprom(0) + 1;
+#endif
 	
 	//cargamos buffer
 	for(int x = 0; x < EEPROM_PAGE_SIZE; x++){
-		buffer[x] = x;
+		buffer[x] = prev++;
 	}
 	
 	delay_ms(100);
 	printf("\r\n- Start -\r\n");
 	
-	/* OLD BYTE WRITE ------------------------------------------------------- */
+	read_and_print();
+	old_byte_write();
+	new_byte_write();
+	write_pages();
+	sequential_read();
+	write_full_eeprom();
+	eeprom_full_erase();
+	
+	do{}while(true);
+}
+
+void old_byte_write(void){
 	printf("\r\n- %u BYTES OLD WRITE -\r\n", SAMPLES);
 	
 	cont = 0;
 	set_timer1(0);
 	
 	for(int x = 0; x < SAMPLES; x++){
-		start = get_timer1() + (cont * 0xFFFF);
+		start = NOW;
 #if defined(EEPROM_1024K)
-		write_ext_eeprom_old(EXT_EEPROM_BANK_0, 0, 0xFF);
+		write_ext_eeprom_old(EXT_EEPROM_BANK_0, x, x);
 #else
-		write_ext_eeprom_old(0, 0xFF);
+		write_ext_eeprom_old(0, x);
 #endif
-		end = get_timer1() + (cont * 0xFFFF);
+		end = NOW;
 		tiempo[x] = end - start;
 	}
 	
-	total = get_timer1() + (cont * 0xFFFF);
+	total = NOW;
 	
 	for(int x = 0; x < SAMPLES; x++){
 		printf("Byte %2u: %Lu uS\r\n", x, tiempo[x]);
 	}
 	
 	printTime(total);
-	delay_ms(5);
-	/* ---------------------------------------------------------------------- */
-	
-	/* NEW BYTE WRITE ------------------------------------------------------- */
+}
+
+void new_byte_write(void){
 	printf("\r\n- %u BYTES NEW WRITE -\r\n", SAMPLES);
 	
 	cont = 0;
 	set_timer1(0);
 	
 	for(int x = 0; x < SAMPLES; x++){
-		start = get_timer1() + (cont * 0xFFFF);
+		start = NOW;
 #if defined(EEPROM_1024K)
-		write_ext_eeprom(EXT_EEPROM_BANK_0, 0, 0xFF);
+		write_ext_eeprom(EXT_EEPROM_BANK_0, x, x);
 #else
-		write_ext_eeprom(0, 0xFF);
+		write_ext_eeprom(0, x);
 #endif
-		end = get_timer1() + (cont * 0xFFFF);
+		end = NOW;
 		tiempo[x] = end - start;
 	}
 	
-	total = get_timer1() + (cont * 0xFFFF);
+	total = NOW;
 	
 	for(int x = 0; x < SAMPLES; x++){
 		printf("Byte %2u: %Lu uS\r\n", x, tiempo[x]);
 	}
 	
 	printTime(total);
-	delay_ms(5);
-	/* ---------------------------------------------------------------------- */
-	
-	/* WRITE PAGES ---------------------------------------------------------- */
+}
+
+void write_pages(void){
 	printf("\r\n- %u PAGES WRITE (%u bytes/page) -\r\n", SAMPLES, EEPROM_PAGE_SIZE);
 
 	pos = 0;
@@ -196,28 +222,27 @@ void main(void){
 	set_timer1(0);
 	
 	for(int x = 0; x < SAMPLES; x++){
-		start = get_timer1() + (cont * 0xFFFF);
+		start = NOW;
 #if defined(EEPROM_1024K)
 		write_block_ext_eeprom(EXT_EEPROM_BANK_0, 0, EEPROM_PAGE_SIZE, buffer);
 #else
 		write_block_ext_eeprom(0, EEPROM_PAGE_SIZE, buffer);
 #endif
-		end = get_timer1() + (cont * 0xFFFF);
+		end = NOW;
 		tiempo[x] = end - start;
 		pos = pos + EEPROM_PAGE_SIZE;
 	}
 
-	total = get_timer1() + (cont * 0xFFFF);
+	total = NOW;
 	
 	for(int x = 0; x < SAMPLES; x++){
 		printf("Page %2u: %Lu uS\r\n", x, tiempo[x]);
 	}
 	
 	printTime(total);
-	delay_ms(5);
-	/* ---------------------------------------------------------------------- */
-	
-	/* SEQUENTIAL READ ------------------------------------------------------ */
+}
+
+void sequential_read(void){
 	printf("\r\n- SEQUENTIAL READ %u bytes -\r\n", EEPROM_PAGE_SIZE);
 
 	pos = 0;
@@ -230,7 +255,7 @@ void main(void){
 	read_block_ext_eeprom(0, EEPROM_PAGE_SIZE, buffer);
 #endif
 	
-	total = get_timer1() + (cont * 0xFFFF);
+	total = NOW;
 	
 	for(int x = 0; x < EEPROM_PAGE_SIZE; x++){
 		if((x%8 == 0) && (x != 0)){
@@ -241,10 +266,9 @@ void main(void){
 	printf("\r\n");
 	
 	printTime(total);
-	delay_ms(5);
-	/* ---------------------------------------------------------------------- */
-	
-	/* WRITE FULL EEPROM ---------------------------------------------------- */
+}
+
+void write_full_eeprom(void){
 	printf("\r\n- FULL EEPROM WRITE -\r\n");
 
 	pos = 0;
@@ -261,23 +285,40 @@ void main(void){
 		pos = pos + EEPROM_PAGE_SIZE;
 	}
 
-	total = get_timer1() + (cont * 0xFFFF);
+	total = NOW;
 	
 	printTime(total);
-	delay_ms(5);
-	/* ---------------------------------------------------------------------- */
-	
-	
-	/* READ AND PRINT TO SERIAL --------------------------------------------- */
-	printf("\r\n- PRINT TO SERIAL -");
-#if defined(EEPROM_1024K)
-	print_ext_eeprom(EXT_EEPROM_BANK_0, 0, EEPROM_PAGE_SIZE*4);
-#else
-	print_ext_eeprom(0, EEPROM_PAGE_SIZE*4);
-#endif
-	/* ---------------------------------------------------------------------- */
-	
-	do{}while(true);
-	
 }
 
+void read_and_print(void){
+	printf("\r\n- PRINT TO SERIAL -");
+#if defined(EEPROM_1024K)
+	print_ext_eeprom(EXT_EEPROM_BANK_0, 0, EEPROM_PAGE_SIZE);
+#else
+	print_ext_eeprom(0, EEPROM_PAGE_SIZE);
+#endif
+}
+
+void eeprom_full_erase(void){
+	printf("\r\n- EEPROM FULL ERASE -\r\n");
+
+	pos = 0;
+	cont = 0;
+	set_timer1(0);
+	
+	erase_ext_eeprom();
+	total = NOW;
+	
+	printTime(total);
+}
+
+void printTime(int32 time){
+long sec, ms, us;
+
+	sec = time / SECONDS;
+	ms = (time % SECONDS) / MILISECONDS;
+	us = (time % SECONDS) % MILISECONDS;
+	
+	printf("TOTAL: %Lu Sec %Lu mS %Lu uS\r\n", sec, ms, us);
+	delay_ms(5);
+}
