@@ -3,6 +3,8 @@
  * Author: Martin
  *
  * Created on 4 de febrero de 2020, 16:32
+ * 
+ * Explicacion de funcionamiento: http://www.todopic.com.ar/foros/index.php?topic=49942.0
  */
 
 /*
