@@ -55,10 +55,9 @@
 
 /* PORT A */
 #define P_TX		PIN_A0		//O
-#define LED			PIN_A1
 
 //Bits				    543210
-#define TRIS_A		0b00111100	//define cuales son entradas y cuales salidas
+#define TRIS_A		0b00111110	//define cuales son entradas y cuales salidas
 #define WPU_A		0b00000000	//define los weak pull up
 
 /* PORT C */
@@ -66,7 +65,7 @@
 #define EEPROM_SDA	PIN_C1		//O
 
 //Bits				    543210
-#define TRIS_C		0b00000000	//define cuales son entradas y cuales salidas
+#define TRIS_C		0b00111100	//define cuales son entradas y cuales salidas
 #define WPU_C		0b00000000	//define los weak pull up
 #endif
 
