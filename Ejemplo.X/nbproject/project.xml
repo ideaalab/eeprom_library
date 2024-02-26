@@ -17,11 +17,11 @@
             </sourceRootList>
             <confList>
                 <confElem>
-                    <name>TEST_1024</name>
+                    <name>USE_16F</name>
                     <type>2</type>
                 </confElem>
                 <confElem>
-                    <name>TEST_256</name>
+                    <name>USE_12F</name>
                     <type>2</type>
                 </confElem>
             </confList>

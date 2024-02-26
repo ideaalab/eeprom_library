@@ -9,17 +9,21 @@
 
 /*
  * Si se abre como proyecto de MPLAB X, se puede elegir en un desplegable las
- * dos opciones de compilacion: TEST_256 o TEST_1024
+ * dos opciones de compilacion: USE_12F o USE_16F
  * Si en cambio se abre de otra manera, descomentar una de las dos lineas
  * de abajo para que compile para uno u otro ejemplo
  */
 
-//#define TEST_256
+//#define USE_12F
+//#define USE_16F
+
+//escoger que memoria queremos probar
+#define TEST_256
 //#define TEST_1024
 
-#if defined(TEST_256)
+#if defined(USE_12F)
 #include <12F1840.h>
-#elif defined(TEST_1024)
+#elif defined(USE_16F)
 #include <16F1825.h>
 #endif
 
@@ -29,7 +33,9 @@
 
 
 /* PUERTOS */
-#if defined(TEST_256)
+#if defined(USE_12F)
+#byte PORTA	= getenv("SFR:PORTA");
+
 #use standard_io(a)				//se accede al puerto a como memoria
 
 #define EEPROM_SCL	PIN_A1		//O
@@ -40,7 +46,10 @@
 #define TRIS_A	0b00011001		//define cuales son entradas y cuales salidas
 #define WPU_A	0b00000000		//define los weak pull up
 
-#elif defined(TEST_1024)
+#elif defined(USE_16F)
+#byte PORTA	= getenv("SFR:PORTA");
+#byte PORTC	= getenv("SFR:PORTC");
+
 #use standard_io(a)				//se accede al puerto a como memoria
 #use standard_io(c)				//se accede al puerto c como memoria
 
@@ -118,10 +127,10 @@ void main(void){
 	set_tris_a(TRIS_A);						//configura pines I/O
 	port_a_pullups(WPU_A);					//configura pull ups
 	
-#if defined(TEST_256)
+#if defined(USE_12F)
 	setup_comparator(NC_NC);				//configura comparador
 	
-#elif defined(TEST_1024)
+#elif defined(USE_16F)
 	setup_timer_4(T4_DISABLED,255,1);		//configura timer4
 	setup_timer_6(T6_DISABLED,255,1);		//configura timer6
 	setup_ccp2(CCP_OFF);					//configura CCP2
@@ -135,6 +144,9 @@ void main(void){
 	
 	enable_interrupts(INT_TIMER1);
 	enable_interrupts(GLOBAL);
+	
+	delay_ms(100);
+	printf("\r\n- Start -\r\n");
 	
 	init_ext_eeprom(EXT_EEPROM_400KHZ);		//inicializa eeprom externa a 400Khz
 	/* ---------------------------------------------------------------------- */
@@ -150,9 +162,6 @@ void main(void){
 		buffer[x] = prev++;
 	}
 	
-	delay_ms(100);
-	printf("\r\n- Start -\r\n");
-	
 	read_and_print();
 	old_byte_write();
 	new_byte_write();
@@ -160,6 +169,8 @@ void main(void){
 	sequential_read();
 	write_full_eeprom();
 	eeprom_full_erase();
+	
+	printf("\r\n- TEST END -\r\n");
 	
 	do{}while(true);
 }
