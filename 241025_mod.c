@@ -101,12 +101,26 @@
  ******************************************************************************/
 
 /*
- * Control byte:
- * 0: R/W (1=R/0=W)
- * 1: Address 0
- * 2: Address 1
- * 3: Block select bit
- * 4-7: Control code (0b1010)
+ * Diferentes marcas usan diferente CONTROL_BYTE
+ * MICROCHIP
+ * b7: 1
+ * b6: 0
+ * b5: 1
+ * b4: 0
+ * b3: block select
+ * b2: addr high
+ * b1: addr low
+ * b0: R/W
+ * 
+ * ATMEL
+ * b7: 1
+ * b6: 0
+ * b5: 1
+ * b4: 0
+ * b3: addr high
+ * b2: addr low
+ * b1: block select
+ * b0: R/W
  */
 
 #ifndef EEPROM_SDA
@@ -118,27 +132,34 @@
 #endif
 
 #if defined(EEPROM_I2C_ADDR_3)
-#define CONTROL_BYTE_WRITE	0b10100110
-#define CONTROL_BYTE_READ	0b10100111
+#define MICROCHIP_ADDR	0b10100110
+#define ATMEL_ADDR		0b10101100
 #elif defined(EEPROM_I2C_ADDR_2)
-#define CONTROL_BYTE_WRITE	0b10100100
-#define CONTROL_BYTE_READ	0b10100101
+#define MICROCHIP_ADDR	0b10100100
+#define ATMEL_ADDR		0b10101000
 #elif defined(EEPROM_I2C_ADDR_1)
-#define CONTROL_BYTE_WRITE	0b10100010
-#define CONTROL_BYTE_READ	0b10100011
+#define MICROCHIP_ADDR	0b10100010
+#define ATMEL_ADDR		0b10100100
 #else	//EEPROM_I2C_ADDR_0
-#define CONTROL_BYTE_WRITE	0b10100000
-#define CONTROL_BYTE_READ	0b10100001
+#define MICROCHIP_ADDR	0b10100000
+#define ATMEL_ADDR		0b10100000
 #endif
 
-#define CONTROL_BYTE_WRITE_B0	CONTROL_BYTE_WRITE
-#define CONTROL_BYTE_WRITE_B1	(CONTROL_BYTE_WRITE | (int)1<<3)
+#ifdef MEM_AT24CM01	//memoria atmel
+#define BSB_POS					1
+#define CONTROL_BYTE_WRITE		ATMEL_ADDR
+#define CONTROL_BYTE_READ		(ATMEL_ADDR | 0b00000001)
+#else	//memoria microchip
+#define BSB_POS					3
+#define CONTROL_BYTE_WRITE		MICROCHIP_ADDR
+#define CONTROL_BYTE_READ		(MICROCHIP_ADDR | 0b00000001)
+#endif
 
 #use i2c(MASTER, NOINIT, sda=EEPROM_SDA, scl=EEPROM_SCL, stream=EEPROM_I2C)
 
 #define EEPROM_ADDRESS				long
 #define EEPROM_PAGE_SIZE			128
-#define EEPROM_SIZE					65536	//en realidad el tamaÃ±o de la memoria es del doble, este es el tamaÃ±o de uno de los 2 bloques
+#define EEPROM_SIZE					65536	//en realidad el tamaño de la memoria es del doble, este es el tamaño de uno de los 2 bloques
 #define EEPROM_PAGES				(EEPROM_SIZE / EEPROM_PAGE_SIZE)
 
 #define EXT_EEPROM_BANK_0			0		//banco 0, 65536 bytes disponibles
@@ -186,7 +207,7 @@ long pos = 0;
 		/* BLOQUE 0 */
 		do{
 			i2c_start(EEPROM_I2C);
-		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE_B0) == EXT_EEPROM_SLAVE_NO_ACK);
+		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE) == EXT_EEPROM_SLAVE_NO_ACK);
 
 		i2c_write(EEPROM_I2C, pos>>8);	//address high
 		i2c_write(EEPROM_I2C, pos);		//address low
@@ -200,7 +221,7 @@ long pos = 0;
 		/* BLOQUE 1 */
 		do{
 			i2c_start(EEPROM_I2C);
-		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE_B1) == EXT_EEPROM_SLAVE_NO_ACK);
+		}while(i2c_write(EEPROM_I2C, CONTROL_BYTE_WRITE | ((int)1<<BSB_POS)) == EXT_EEPROM_SLAVE_NO_ACK);
 
 		i2c_write(EEPROM_I2C, pos>>8);	//address high
 		i2c_write(EEPROM_I2C, pos);		//address low
@@ -226,7 +247,7 @@ long pos = 0;
  * data es el byte que escribiremos en la direccion
  */
 void write_ext_eeprom(short bsb, long address, int data){
-int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<BSB_POS);
 
 	//esperamos a que la memoria este lista
 	do{
@@ -246,7 +267,7 @@ int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
  * data es el byte que escribiremos en la direccion
  */
 void write_ext_eeprom_old(short bsb, long address, int data){
-int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<BSB_POS);
 	
 	i2c_start(EEPROM_I2C);				//start
 	i2c_write(EEPROM_I2C, ControlByteW);//control byte
@@ -271,7 +292,7 @@ int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
  */
 void write_block_ext_eeprom(short bsb, long start, long len, int* data){
 short primero;		//indica si es el primer valor del bloque
-int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<BSB_POS);
 long end = start + len;
 
 	do{
@@ -302,8 +323,8 @@ long end = start + len;
  */
 int read_ext_eeprom(short bsb, long address){
 int data;
-int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
-int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<BSB_POS);
+int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<BSB_POS);
 
 	//esperamos que la memoria este lista
 	do{
@@ -328,8 +349,8 @@ int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
  * len es la cantidad de bytes a leer
  */
 void read_block_ext_eeprom(short bsb, long start, long len, int* data){
-int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<3);
-int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<3);
+int ControlByteW = CONTROL_BYTE_WRITE | ((int)bsb<<BSB_POS);
+int ControlByteR = CONTROL_BYTE_READ | ((int)bsb<<BSB_POS);
 
    //esperamos que la memoria este lista
 	do{
